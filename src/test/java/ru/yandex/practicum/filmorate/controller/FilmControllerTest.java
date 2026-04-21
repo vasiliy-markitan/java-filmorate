@@ -106,10 +106,10 @@ class FilmControllerTest {
     }
 
     @Test
-    void addFilm_nullReleaseDate_ok() {
+    void addFilm_nullReleaseDate_throwsValidationException() {
         Film film = validFilm();
         film.setReleaseDate(null);
-        assertDoesNotThrow(() -> controller.addFilm(film));
+        assertThrows(ValidationException.class, () -> controller.addFilm(film));
     }
 
     @Test

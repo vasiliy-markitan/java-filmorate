@@ -45,6 +45,7 @@ public class UserController {
 
     @GetMapping
     public List<User> getAllUsers() {
+        log.info("Запрос списка всех пользователей");
         return new ArrayList<>(users.values());
     }
 
@@ -65,8 +66,8 @@ public class UserController {
             log.warn("Валидация не пройдена: логин '{}' содержит пробелы", user.getLogin());
             throw new ValidationException("Логин не может содержать пробелы");
         }
-        if (user.getBirthday() != null && user.getBirthday().isAfter(LocalDate.now())) {
-            log.warn("Валидация не пройдена: дата рождения {} находится в будущем", user.getBirthday());
+        if (user.getBirthday() == null || user.getBirthday().isAfter(LocalDate.now())) {
+            log.warn("Валидация не пройдена: дата рождения {} не указана или находится в будущем", user.getBirthday());
             throw new ValidationException("Дата рождения не может быть в будущем");
         }
     }

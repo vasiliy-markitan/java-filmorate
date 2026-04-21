@@ -129,10 +129,10 @@ class UserControllerTest {
     }
 
     @Test
-    void createUser_nullBirthday_ok() {
+    void createUser_nullBirthday_throwsValidationException() {
         User user = validUser();
         user.setBirthday(null);
-        assertDoesNotThrow(() -> controller.createUser(user));
+        assertThrows(ValidationException.class, () -> controller.createUser(user));
     }
 
     @Test

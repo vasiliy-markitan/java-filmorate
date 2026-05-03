@@ -1,7 +1,7 @@
 package ru.yandex.practicum.filmorate.controller;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
@@ -13,12 +13,16 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/films")
-@RequiredArgsConstructor
 public class FilmController {
     private static final LocalDate MIN_RELEASE_DATE = LocalDate.of(1895, 12, 28);
-    private static final Integer MAX_DESCRIPTION_LENGTH = 200;
+    private static final int MAX_DESCRIPTION_LENGTH = 200;
 
     private final FilmService filmService;
+
+    @Autowired
+    public FilmController(FilmService filmService) {
+        this.filmService = filmService;
+    }
 
     @PostMapping
     public Film addFilm(@RequestBody Film film) {

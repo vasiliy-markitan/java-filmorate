@@ -24,36 +24,53 @@ public class UserService {
     }
 
     public User createUser(User user) {
+        log.debug("Начало создания пользователя: {}", user);
         validate(user);
         applyNameFallback(user);
-        return userStorage.createUser(user);
+        User saved = userStorage.createUser(user);
+        log.debug("Пользователь создан: id={}, login={}", saved.getId(), saved.getLogin());
+        return saved;
     }
 
     public User updateUser(User user) {
+        log.debug("Начало обновления пользователя: {}", user);
         validate(user);
         applyNameFallback(user);
-        getById(user.getId());
-        return userStorage.updateUser(user);
+        User existing = getById(user.getId());
+        log.debug("Текущее состояние пользователя перед обновлением: {}", existing);
+        User updated = userStorage.updateUser(user);
+        log.debug("Пользователь обновлён: {}", updated);
+        return updated;
     }
 
     public List<User> getAllUsers() {
-        return userStorage.getAllUsers();
+        List<User> users = userStorage.getAllUsers();
+        log.debug("Получен список пользователей, количество: {}", users.size());
+        return users;
     }
 
     public User getById(Long id) {
+        log.debug("Поиск пользователя по id={}", id);
         return userStorage.getUserById(id)
-                .orElseThrow(() -> new NotFoundException("Пользователь с id=" + id + " не найден"));
+                .orElseThrow(() -> {
+                    log.warn("Пользователь с id={} не найден", id);
+                    return new NotFoundException("Пользователь с id=" + id + " не найден");
+                });
     }
 
     public void addFriend(Long userId, Long friendId) {
+        log.debug("Пользователь id={} добавляет в друзья пользователя id={}", userId, friendId);
         User user = getById(userId);
         User friend = getById(friendId);
         user.getFriends().add(friendId);
         friend.getFriends().add(userId);
-        log.info("Пользователь id={} и пользователь id={} теперь друзья", userId, friendId);
+        log.info("Пользователь id={} и пользователь id={} теперь друзья. " +
+                "Друзей у id={}: {}, у id={}: {}",
+                userId, friendId, userId, user.getFriends().size(), friendId, friend.getFriends().size());
     }
 
     public void removeFriend(Long userId, Long friendId) {
+        log.debug("Пользователь id={} удаляет из друзей пользователя id={}", userId, friendId);
         User user = getById(userId);
         User friend = getById(friendId);
         user.getFriends().remove(friendId);
@@ -62,19 +79,25 @@ public class UserService {
     }
 
     public List<User> getFriends(Long userId) {
+        log.debug("Запрос списка друзей пользователя id={}", userId);
         User user = getById(userId);
-        return user.getFriends().stream()
+        List<User> friends = user.getFriends().stream()
                 .map(this::getById)
                 .collect(Collectors.toList());
+        log.debug("Пользователь id={} имеет {} друзей", userId, friends.size());
+        return friends;
     }
 
     public List<User> getCommonFriends(Long userId, Long otherId) {
+        log.debug("Запрос общих друзей пользователей id={} и id={}", userId, otherId);
         Set<Long> userFriends = getById(userId).getFriends();
         Set<Long> otherFriends = getById(otherId).getFriends();
-        return userFriends.stream()
+        List<User> common = userFriends.stream()
                 .filter(otherFriends::contains)
                 .map(this::getById)
                 .collect(Collectors.toList());
+        log.debug("Общих друзей у пользователей id={} и id={}: {}", userId, otherId, common.size());
+        return common;
     }
 
     private void validate(User user) {
@@ -103,6 +126,7 @@ public class UserService {
 
     private void applyNameFallback(User user) {
         if (user.getName() == null || user.getName().isBlank()) {
+            log.debug("Имя пользователя не задано, используется логин '{}' в качестве имени", user.getLogin());
             user.setName(user.getLogin());
         }
     }

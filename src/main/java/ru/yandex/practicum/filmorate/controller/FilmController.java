@@ -1,53 +1,52 @@
 package ru.yandex.practicum.filmorate.controller;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @RestController
 @RequestMapping("/films")
+@RequiredArgsConstructor
 public class FilmController {
     private static final LocalDate MIN_RELEASE_DATE = LocalDate.of(1895, 12, 28);
     private static final Integer MAX_DESCRIPTION_LENGTH = 200;
 
-    private final Map<Long, Film> films = new HashMap<>();
+    private final FilmStorage filmStorage;
 
     @PostMapping
     public Film addFilm(@RequestBody Film film) {
         log.info("Добавление фильма: {}", film);
         validate(film);
-        film.setId(getNextId());
-        films.put(film.getId(), film);
-        log.info("Фильм добавлен с id={}", film.getId());
-        return film;
+        Film saved = filmStorage.addFilm(film);
+        log.info("Фильм добавлен с id={}", saved.getId());
+        return saved;
     }
 
     @PutMapping
     public Film updateFilm(@RequestBody Film film) {
         log.info("Обновление фильма: {}", film);
-        if (!films.containsKey(film.getId())) {
+        filmStorage.getFilmById(film.getId()).orElseThrow(() -> {
             log.warn("Фильм с id={} не найден", film.getId());
-            throw new NotFoundException("Фильм с id=" + film.getId() + " не найден");
-        }
+            return new NotFoundException("Фильм с id=" + film.getId() + " не найден");
+        });
         validate(film);
-        films.put(film.getId(), film);
-        log.info("Фильм с id={} обновлён", film.getId());
-        return film;
+        Film updated = filmStorage.updateFilm(film);
+        log.info("Фильм с id={} обновлён", updated.getId());
+        return updated;
     }
 
     @GetMapping
     public List<Film> getAllFilms() {
         log.info("Запрос списка всех фильмов");
-        return new ArrayList<>(films.values());
+        return filmStorage.getAllFilms();
     }
 
     private void validate(Film film) {
@@ -67,14 +66,5 @@ public class FilmController {
             log.warn("Валидация не пройдена: продолжительность {} не является положительным числом", film.getDuration());
             throw new ValidationException("Продолжительность фильма должна быть положительным числом");
         }
-    }
-
-    private long getNextId() {
-        long currentMaxId = films.keySet()
-                .stream()
-                .mapToLong(id -> id)
-                .max()
-                .orElse(0);
-        return ++currentMaxId;
     }
 }

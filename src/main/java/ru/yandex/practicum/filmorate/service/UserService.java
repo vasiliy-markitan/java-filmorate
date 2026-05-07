@@ -60,6 +60,10 @@ public class UserService {
 
     public void addFriend(Long userId, Long friendId) {
         log.debug("Пользователь id={} добавляет в друзья пользователя id={}", userId, friendId);
+        if (userId.equals(friendId)) {
+            log.warn("Валидация не пройдена: пользователь id={} пытается добавить себя в друзья", userId);
+            throw new ValidationException("Пользователь не может добавить самого себя в друзья");
+        }
         User user = getById(userId);
         User friend = getById(friendId);
         user.getFriends().add(friendId);
@@ -71,6 +75,10 @@ public class UserService {
 
     public void removeFriend(Long userId, Long friendId) {
         log.debug("Пользователь id={} удаляет из друзей пользователя id={}", userId, friendId);
+        if (userId.equals(friendId)) {
+            log.warn("Валидация не пройдена: пользователь id={} пытается удалить себя из друзей", userId);
+            throw new ValidationException("Пользователь не может удалить самого себя из друзей");
+        }
         User user = getById(userId);
         User friend = getById(friendId);
         user.getFriends().remove(friendId);
@@ -90,6 +98,10 @@ public class UserService {
 
     public List<User> getCommonFriends(Long userId, Long otherId) {
         log.debug("Запрос общих друзей пользователей id={} и id={}", userId, otherId);
+        if (userId.equals(otherId)) {
+            log.warn("Валидация не пройдена: запрос общих друзей с самим собой, id={}", userId);
+            throw new ValidationException("Нельзя запрашивать общих друзей с самим собой");
+        }
         Set<Long> userFriends = getById(userId).getFriends();
         Set<Long> otherFriends = getById(otherId).getFriends();
         List<User> common = userFriends.stream()

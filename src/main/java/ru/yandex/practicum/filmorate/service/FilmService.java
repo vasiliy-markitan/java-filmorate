@@ -84,6 +84,10 @@ public class FilmService {
     }
 
     public List<Film> getPopularFilms(int count) {
+        if (count <= 0) {
+            log.warn("Валидация не пройдена: count={} не является положительным числом", count);
+            throw new ValidationException("Количество фильмов должно быть положительным числом");
+        }
         log.debug("Запрос топ-{} популярных фильмов", count);
         List<Film> popular = filmStorage.getAllFilms().stream()
                 .sorted(Comparator.comparingInt((Film f) -> f.getLikes().size()).reversed())

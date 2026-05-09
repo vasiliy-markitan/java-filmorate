@@ -1,0 +1,77 @@
+// Filmorate — схема базы данных для dbdiagram
+// Docs: https://dbml.dbdiagram.io/docs
+
+Table users {
+  user_id bigint [primary key, increment]
+  email   varchar [not null, unique]
+  login   varchar [not null, unique]
+  name    varchar
+  birthday date
+}
+
+Table friendships {
+  user_id   bigint [not null, note: 'Инициатор запроса дружбы']
+  friend_id bigint [not null, note: 'Получатель запроса дружбы']
+  status    varchar [not null, note: 'UNCONFIRMED | CONFIRMED']
+
+  indexes {
+    (user_id, friend_id) [pk]
+  }
+}
+
+Table films {
+  film_id       bigint  [primary key, increment]
+  name          varchar [not null]
+  description   varchar(200)
+  release_date  date
+  duration      int
+  mpa_rating_id int     [not null, ref: > mpa_ratings.mpa_rating_id]
+}
+
+Table mpa_ratings {
+  mpa_rating_id int     [primary key, increment]
+  name          varchar [not null, unique, note: 'G | PG | PG-13 | R | NC-17']
+}
+
+Table genres {
+  genre_id int     [primary key, increment]
+  name     varchar [not null, unique, note: 'COMEDY | DRAMA | CARTOON | THRILLER | DOCUMENTARY | ACTION']
+}
+
+Table film_genres {
+  film_id  bigint [not null]
+  genre_id int    [not null]
+
+  indexes {
+    (film_id, genre_id) [pk]
+  }
+}
+
+Table likes {
+  film_id bigint [not null]
+  user_id bigint [not null]
+
+  indexes {
+    (film_id, user_id) [pk]
+  }
+}
+
+// ── Отношения ────────────────────────────────────────────────────
+
+// Один пользователь может инициировать много запросов дружбы
+Ref: users.user_id < friendships.user_id
+
+// Один пользователь может получить много запросов дружбы
+Ref: users.user_id < friendships.friend_id
+
+// Один фильм может получить много лайков (многие-ко-многим users <> films)
+Ref: films.film_id < likes.film_id
+
+// Один пользователь может поставить много лайков
+Ref: users.user_id < likes.user_id
+
+// Один фильм может относиться ко многим жанрам (многие-ко-многим films <> genres)
+Ref: films.film_id < film_genres.film_id
+
+// Один жанр может принадлежать многим фильмам
+Ref: genres.genre_id < film_genres.genre_id

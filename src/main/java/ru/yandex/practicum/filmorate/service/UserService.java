@@ -5,12 +5,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.FriendshipStatus;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -66,11 +66,14 @@ public class UserService {
         }
         User user = getById(userId);
         User friend = getById(friendId);
-        user.getFriends().add(friendId);
-        friend.getFriends().add(userId);
-        log.info("Пользователь id={} и пользователь id={} теперь друзья. " +
-                "Друзей у id={}: {}, у id={}: {}",
-                userId, friendId, userId, user.getFriends().size(), friendId, friend.getFriends().size());
+        if (friend.getFriends().containsKey(userId)) {
+            friend.getFriends().put(userId, FriendshipStatus.CONFIRMED);
+            user.getFriends().put(friendId, FriendshipStatus.CONFIRMED);
+            log.info("Дружба подтверждена между пользователями id={} и id={}", userId, friendId);
+        } else {
+            user.getFriends().put(friendId, FriendshipStatus.UNCONFIRMED);
+            log.info("Пользователь id={} отправил запрос дружбы пользователю id={}", userId, friendId);
+        }
     }
 
     public void removeFriend(Long userId, Long friendId) {
@@ -82,14 +85,16 @@ public class UserService {
         User user = getById(userId);
         User friend = getById(friendId);
         user.getFriends().remove(friendId);
-        friend.getFriends().remove(userId);
-        log.info("Пользователь id={} и пользователь id={} больше не друзья", userId, friendId);
+        if (friend.getFriends().containsKey(userId)) {
+            friend.getFriends().put(userId, FriendshipStatus.UNCONFIRMED);
+        }
+        log.info("Пользователь id={} удалил из друзей пользователя id={}", userId, friendId);
     }
 
     public List<User> getFriends(Long userId) {
         log.debug("Запрос списка друзей пользователя id={}", userId);
         User user = getById(userId);
-        List<User> friends = user.getFriends().stream()
+        List<User> friends = user.getFriends().keySet().stream()
                 .map(this::getById)
                 .collect(Collectors.toList());
         log.debug("Пользователь id={} имеет {} друзей", userId, friends.size());
@@ -102,10 +107,8 @@ public class UserService {
             log.warn("Валидация не пройдена: запрос общих друзей с самим собой, id={}", userId);
             throw new ValidationException("Нельзя запрашивать общих друзей с самим собой");
         }
-        Set<Long> userFriends = getById(userId).getFriends();
-        Set<Long> otherFriends = getById(otherId).getFriends();
-        List<User> common = userFriends.stream()
-                .filter(otherFriends::contains)
+        List<User> common = getById(userId).getFriends().keySet().stream()
+                .filter(id -> getById(otherId).getFriends().containsKey(id))
                 .map(this::getById)
                 .collect(Collectors.toList());
         log.debug("Общих друзей у пользователей id={} и id={}: {}", userId, otherId, common.size());

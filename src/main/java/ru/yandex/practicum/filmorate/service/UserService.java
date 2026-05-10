@@ -2,6 +2,7 @@ package ru.yandex.practicum.filmorate.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
@@ -19,7 +20,7 @@ public class UserService {
     private final UserStorage userStorage;
 
     @Autowired
-    public UserService(UserStorage userStorage) {
+    public UserService(@Qualifier("userDbStorage") UserStorage userStorage) {
         this.userStorage = userStorage;
     }
 
@@ -69,11 +70,13 @@ public class UserService {
         if (friend.getFriends().containsKey(userId)) {
             friend.getFriends().put(userId, FriendshipStatus.CONFIRMED);
             user.getFriends().put(friendId, FriendshipStatus.CONFIRMED);
+            userStorage.updateUser(friend);
             log.info("Дружба подтверждена между пользователями id={} и id={}", userId, friendId);
         } else {
             user.getFriends().put(friendId, FriendshipStatus.UNCONFIRMED);
             log.info("Пользователь id={} отправил запрос дружбы пользователю id={}", userId, friendId);
         }
+        userStorage.updateUser(user);
     }
 
     public void removeFriend(Long userId, Long friendId) {
@@ -87,7 +90,9 @@ public class UserService {
         user.getFriends().remove(friendId);
         if (friend.getFriends().containsKey(userId)) {
             friend.getFriends().put(userId, FriendshipStatus.UNCONFIRMED);
+            userStorage.updateUser(friend);
         }
+        userStorage.updateUser(user);
         log.info("Пользователь id={} удалил из друзей пользователя id={}", userId, friendId);
     }
 

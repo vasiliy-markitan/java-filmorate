@@ -2,6 +2,7 @@ package ru.yandex.practicum.filmorate.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
@@ -24,7 +25,8 @@ public class FilmService {
     private final UserStorage userStorage;
 
     @Autowired
-    public FilmService(FilmStorage filmStorage, UserStorage userStorage) {
+    public FilmService(@Qualifier("filmDbStorage") FilmStorage filmStorage,
+                       @Qualifier("userDbStorage") UserStorage userStorage) {
         this.filmStorage = filmStorage;
         this.userStorage = userStorage;
     }
@@ -67,6 +69,7 @@ public class FilmService {
         Film film = getById(filmId);
         getUserById(userId);
         film.getLikes().add(userId);
+        filmStorage.updateFilm(film);
         log.info("Пользователь id={} поставил лайк фильму id={}, всего лайков: {}",
                 userId, filmId, film.getLikes().size());
     }
@@ -79,6 +82,7 @@ public class FilmService {
             log.warn("Лайк от пользователя id={} у фильма id={} не найден", userId, filmId);
             throw new NotFoundException("Лайк от пользователя id=" + userId + " не найден");
         }
+        filmStorage.updateFilm(film);
         log.info("Пользователь id={} убрал лайк с фильма id={}, всего лайков: {}",
                 userId, filmId, film.getLikes().size());
     }

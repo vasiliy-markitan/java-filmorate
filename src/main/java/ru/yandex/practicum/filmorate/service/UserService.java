@@ -66,17 +66,10 @@ public class UserService {
             throw new ValidationException("Пользователь не может добавить самого себя в друзья");
         }
         User user = getById(userId);
-        User friend = getById(friendId);
-        if (friend.getFriends().containsKey(userId)) {
-            friend.getFriends().put(userId, FriendshipStatus.CONFIRMED);
-            user.getFriends().put(friendId, FriendshipStatus.CONFIRMED);
-            userStorage.updateUser(friend);
-            log.info("Дружба подтверждена между пользователями id={} и id={}", userId, friendId);
-        } else {
-            user.getFriends().put(friendId, FriendshipStatus.UNCONFIRMED);
-            log.info("Пользователь id={} отправил запрос дружбы пользователю id={}", userId, friendId);
-        }
+        getById(friendId);
+        user.getFriends().put(friendId, FriendshipStatus.UNCONFIRMED);
         userStorage.updateUser(user);
+        log.info("Пользователь id={} добавил в друзья пользователя id={}", userId, friendId);
     }
 
     public void removeFriend(Long userId, Long friendId) {
@@ -86,12 +79,8 @@ public class UserService {
             throw new ValidationException("Пользователь не может удалить самого себя из друзей");
         }
         User user = getById(userId);
-        User friend = getById(friendId);
+        getById(friendId);
         user.getFriends().remove(friendId);
-        if (friend.getFriends().containsKey(userId)) {
-            friend.getFriends().put(userId, FriendshipStatus.UNCONFIRMED);
-            userStorage.updateUser(friend);
-        }
         userStorage.updateUser(user);
         log.info("Пользователь id={} удалил из друзей пользователя id={}", userId, friendId);
     }

@@ -6,11 +6,14 @@ import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.storage.film.InMemoryFilmStorage;
+import ru.yandex.practicum.filmorate.storage.genre.GenreStorage;
+import ru.yandex.practicum.filmorate.storage.mpa.MpaRatingStorage;
 import ru.yandex.practicum.filmorate.storage.user.InMemoryUserStorage;
 
 import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 
 class FilmControllerTest {
 
@@ -18,7 +21,12 @@ class FilmControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new FilmController(new FilmService(new InMemoryFilmStorage(), new InMemoryUserStorage()));
+        controller = new FilmController(new FilmService(
+                new InMemoryFilmStorage(),
+                new InMemoryUserStorage(),
+                mock(MpaRatingStorage.class),
+                mock(GenreStorage.class)
+        ));
     }
 
     private Film validFilm() {

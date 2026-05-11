@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS friendships (
     friend_id BIGINT  NOT NULL,
     status    VARCHAR NOT NULL,
     CONSTRAINT pk_friendships PRIMARY KEY (user_id, friend_id),
-    CONSTRAINT fk_friendships_user   FOREIGN KEY (user_id)   REFERENCES users (user_id),
-    CONSTRAINT fk_friendships_friend FOREIGN KEY (friend_id) REFERENCES users (user_id)
+    CONSTRAINT fk_friendships_user   FOREIGN KEY (user_id)   REFERENCES users (user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_friendships_friend FOREIGN KEY (friend_id) REFERENCES users (user_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS mpa_ratings (
@@ -48,5 +48,5 @@ CREATE TABLE IF NOT EXISTS likes (
     user_id BIGINT NOT NULL,
     CONSTRAINT pk_likes PRIMARY KEY (film_id, user_id),
     CONSTRAINT fk_likes_film FOREIGN KEY (film_id) REFERENCES films (film_id) ON DELETE CASCADE,
-    CONSTRAINT fk_likes_user FOREIGN KEY (user_id) REFERENCES users (user_id)
+    CONSTRAINT fk_likes_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
 );

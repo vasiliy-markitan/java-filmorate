@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import ru.yandex.practicum.filmorate.model.FriendshipStatus;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
@@ -23,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class UserDbStorageTest {
 
     private final UserDbStorage userStorage;
+    private final JdbcTemplate jdbc;
 
     private User makeUser(String email, String login) {
         User user = new User();
@@ -102,11 +104,8 @@ class UserDbStorageTest {
         User friend = userStorage.createUser(makeUser("u2@test.com", "user2"));
         userStorage.addFriend(user.getId(), friend.getId(), FriendshipStatus.UNCONFIRMED);
 
-        Optional<User> found = userStorage.getUserById(user.getId());
-
-        assertThat(found).isPresent();
-        assertThat(found.get().getFriends())
-                .containsEntry(friend.getId(), FriendshipStatus.UNCONFIRMED);
+        assertThat(userStorage.friendshipExists(user.getId(), friend.getId())).isTrue();
+        assertThat(friendshipStatus(user.getId(), friend.getId())).isEqualTo("UNCONFIRMED");
     }
 
     @Test
@@ -116,11 +115,14 @@ class UserDbStorageTest {
         userStorage.addFriend(user.getId(), friend.getId(), FriendshipStatus.UNCONFIRMED);
         userStorage.updateFriendshipStatus(user.getId(), friend.getId(), FriendshipStatus.CONFIRMED);
 
-        Optional<User> found = userStorage.getUserById(user.getId());
+        assertThat(friendshipStatus(user.getId(), friend.getId())).isEqualTo("CONFIRMED");
+    }
 
-        assertThat(found).isPresent();
-        assertThat(found.get().getFriends())
-                .containsEntry(friend.getId(), FriendshipStatus.CONFIRMED);
+    private String friendshipStatus(Long userId, Long friendId) {
+        return jdbc.queryForObject(
+                "SELECT status FROM friendships WHERE user_id=? AND friend_id=?",
+                String.class, userId, friendId
+        );
     }
 
     @Test

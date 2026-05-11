@@ -15,9 +15,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -65,29 +63,21 @@ public class UserDbStorage implements UserStorage {
 
     @Override
     public void deleteUser(Long id) {
-        jdbc.update("DELETE FROM friendships WHERE user_id=? OR friend_id=?", id, id);
-        jdbc.update("DELETE FROM likes WHERE user_id=?", id);
+        // friendships и likes удаляются каскадно через ON DELETE CASCADE
         jdbc.update("DELETE FROM users WHERE user_id=?", id);
     }
 
     @Override
     public List<User> getAllUsers() {
         String sql = "SELECT user_id, email, login, name, birthday FROM users";
-        List<User> users = jdbc.query(sql, this::mapRowToUser);
-        users.forEach(this::loadFriends);
-        return users;
+        return jdbc.query(sql, this::mapRowToUser);
     }
 
     @Override
     public Optional<User> getUserById(Long id) {
         String sql = "SELECT user_id, email, login, name, birthday FROM users WHERE user_id=?";
         List<User> users = jdbc.query(sql, this::mapRowToUser, id);
-        if (users.isEmpty()) {
-            return Optional.empty();
-        }
-        User user = users.get(0);
-        loadFriends(user);
-        return Optional.of(user);
+        return users.isEmpty() ? Optional.empty() : Optional.of(users.get(0));
     }
 
     @Override
@@ -152,12 +142,4 @@ public class UserDbStorage implements UserStorage {
         return user;
     }
 
-    private void loadFriends(User user) {
-        String sql = "SELECT friend_id, status FROM friendships WHERE user_id=?";
-        Map<Long, FriendshipStatus> friends = new HashMap<>();
-        jdbc.query(sql, rs -> {
-            friends.put(rs.getLong("friend_id"), FriendshipStatus.valueOf(rs.getString("status")));
-        }, user.getId());
-        user.setFriends(friends);
-    }
 }

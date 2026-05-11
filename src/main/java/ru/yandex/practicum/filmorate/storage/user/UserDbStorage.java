@@ -59,7 +59,6 @@ public class UserDbStorage implements UserStorage {
                 user.getName(),
                 user.getBirthday() != null ? Date.valueOf(user.getBirthday()) : null,
                 user.getId());
-        saveFriendships(user);
         log.debug("Пользователь обновлён в БД: id={}", user.getId());
         return user;
     }
@@ -91,6 +90,57 @@ public class UserDbStorage implements UserStorage {
         return Optional.of(user);
     }
 
+    @Override
+    public void addFriend(Long userId, Long friendId, FriendshipStatus status) {
+        jdbc.update(
+                "INSERT INTO friendships (user_id, friend_id, status) VALUES (?, ?, ?)",
+                userId, friendId, status.name()
+        );
+        log.debug("Дружба добавлена: userId={}, friendId={}, status={}", userId, friendId, status);
+    }
+
+    @Override
+    public void removeFriend(Long userId, Long friendId) {
+        jdbc.update("DELETE FROM friendships WHERE user_id=? AND friend_id=?", userId, friendId);
+        log.debug("Дружба удалена: userId={}, friendId={}", userId, friendId);
+    }
+
+    @Override
+    public void updateFriendshipStatus(Long userId, Long friendId, FriendshipStatus status) {
+        jdbc.update(
+                "UPDATE friendships SET status=? WHERE user_id=? AND friend_id=?",
+                status.name(), userId, friendId
+        );
+        log.debug("Статус дружбы обновлён: userId={}, friendId={}, status={}", userId, friendId, status);
+    }
+
+    @Override
+    public boolean friendshipExists(Long userId, Long friendId) {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM friendships WHERE user_id=? AND friend_id=?",
+                Integer.class, userId, friendId
+        );
+        return count != null && count > 0;
+    }
+
+    @Override
+    public List<User> getFriends(Long userId) {
+        String sql = "SELECT u.user_id, u.email, u.login, u.name, u.birthday " +
+                     "FROM users u " +
+                     "JOIN friendships f ON u.user_id = f.friend_id " +
+                     "WHERE f.user_id = ?";
+        return jdbc.query(sql, this::mapRowToUser, userId);
+    }
+
+    @Override
+    public List<User> getCommonFriends(Long userId, Long otherId) {
+        String sql = "SELECT u.user_id, u.email, u.login, u.name, u.birthday " +
+                     "FROM users u " +
+                     "JOIN friendships f1 ON u.user_id = f1.friend_id AND f1.user_id = ? " +
+                     "JOIN friendships f2 ON u.user_id = f2.friend_id AND f2.user_id = ?";
+        return jdbc.query(sql, this::mapRowToUser, userId, otherId);
+    }
+
     private User mapRowToUser(ResultSet rs, int rowNum) throws SQLException {
         User user = new User();
         user.setId(rs.getLong("user_id"));
@@ -109,18 +159,5 @@ public class UserDbStorage implements UserStorage {
             friends.put(rs.getLong("friend_id"), FriendshipStatus.valueOf(rs.getString("status")));
         }, user.getId());
         user.setFriends(friends);
-    }
-
-    private void saveFriendships(User user) {
-        jdbc.update("DELETE FROM friendships WHERE user_id=?", user.getId());
-        if (user.getFriends() == null || user.getFriends().isEmpty()) {
-            return;
-        }
-        for (Map.Entry<Long, FriendshipStatus> entry : user.getFriends().entrySet()) {
-            jdbc.update(
-                    "INSERT INTO friendships (user_id, friend_id, status) VALUES (?, ?, ?)",
-                    user.getId(), entry.getKey(), entry.getValue().name()
-            );
-        }
     }
 }

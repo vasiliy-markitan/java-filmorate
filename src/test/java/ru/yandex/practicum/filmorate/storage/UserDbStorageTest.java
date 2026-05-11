@@ -97,11 +97,10 @@ class UserDbStorageTest {
     }
 
     @Test
-    void updateUser_savesFriendshipToDb() {
+    void addFriend_savesUnconfirmedFriendshipToDb() {
         User user = userStorage.createUser(makeUser("u1@test.com", "user1"));
         User friend = userStorage.createUser(makeUser("u2@test.com", "user2"));
-        user.getFriends().put(friend.getId(), FriendshipStatus.UNCONFIRMED);
-        userStorage.updateUser(user);
+        userStorage.addFriend(user.getId(), friend.getId(), FriendshipStatus.UNCONFIRMED);
 
         Optional<User> found = userStorage.getUserById(user.getId());
 
@@ -111,11 +110,11 @@ class UserDbStorageTest {
     }
 
     @Test
-    void updateUser_confirmedFriendship_persistsStatus() {
+    void updateFriendshipStatus_updatesToConfirmed() {
         User user = userStorage.createUser(makeUser("c1@test.com", "conf1"));
         User friend = userStorage.createUser(makeUser("c2@test.com", "conf2"));
-        user.getFriends().put(friend.getId(), FriendshipStatus.CONFIRMED);
-        userStorage.updateUser(user);
+        userStorage.addFriend(user.getId(), friend.getId(), FriendshipStatus.UNCONFIRMED);
+        userStorage.updateFriendshipStatus(user.getId(), friend.getId(), FriendshipStatus.CONFIRMED);
 
         Optional<User> found = userStorage.getUserById(user.getId());
 
@@ -125,11 +124,22 @@ class UserDbStorageTest {
     }
 
     @Test
+    void getFriends_returnsCorrectUsers() {
+        User user = userStorage.createUser(makeUser("main@test.com", "mainlogin"));
+        User friend = userStorage.createUser(makeUser("fr2@test.com", "fr2login"));
+        userStorage.addFriend(user.getId(), friend.getId(), FriendshipStatus.UNCONFIRMED);
+
+        List<User> friends = userStorage.getFriends(user.getId());
+
+        assertThat(friends).hasSize(1);
+        assertThat(friends.get(0).getId()).isEqualTo(friend.getId());
+    }
+
+    @Test
     void deleteUser_alsoRemovesFriendships() {
         User user = userStorage.createUser(makeUser("owner@test.com", "ownerlogin"));
         User friend = userStorage.createUser(makeUser("fr@test.com", "frlogin"));
-        user.getFriends().put(friend.getId(), FriendshipStatus.UNCONFIRMED);
-        userStorage.updateUser(user);
+        userStorage.addFriend(user.getId(), friend.getId(), FriendshipStatus.UNCONFIRMED);
 
         userStorage.deleteUser(user.getId());
 

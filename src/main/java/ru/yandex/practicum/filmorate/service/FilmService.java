@@ -2,17 +2,17 @@ package ru.yandex.practicum.filmorate.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.mpa.MpaRatingStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
-import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -22,39 +22,42 @@ public class FilmService {
 
     private final FilmStorage filmStorage;
     private final UserStorage userStorage;
+    private final MpaRatingStorage mpaRatingStorage;
+    private final GenreService genreService;
 
     @Autowired
-    public FilmService(FilmStorage filmStorage, UserStorage userStorage) {
+    public FilmService(@Qualifier("filmDbStorage") FilmStorage filmStorage,
+                       @Qualifier("userDbStorage") UserStorage userStorage,
+                       MpaRatingStorage mpaRatingStorage,
+                       GenreService genreService) {
         this.filmStorage = filmStorage;
         this.userStorage = userStorage;
+        this.mpaRatingStorage = mpaRatingStorage;
+        this.genreService = genreService;
     }
 
     public Film addFilm(Film film) {
-        log.debug("Начало добавления фильма: {}", film);
         validate(film);
         Film saved = filmStorage.addFilm(film);
-        log.debug("Фильм добавлен: id={}, name={}", saved.getId(), saved.getName());
+        log.info("Фильм добавлен: id={}, name={}", saved.getId(), saved.getName());
         return saved;
     }
 
     public Film updateFilm(Film film) {
-        log.debug("Начало обновления фильма: {}", film);
         validate(film);
-        Film existing = getById(film.getId());
-        log.debug("Текущее состояние фильма перед обновлением: {}", existing);
+        getById(film.getId());
         Film updated = filmStorage.updateFilm(film);
-        log.debug("Фильм обновлён: {}", updated);
+        log.info("Фильм обновлён: id={}, name={}", updated.getId(), updated.getName());
         return updated;
     }
 
     public List<Film> getAllFilms() {
         List<Film> films = filmStorage.getAllFilms();
-        log.debug("Получен список фильмов, количество: {}", films.size());
+        log.debug("Запрос всех фильмов, найдено: {}", films.size());
         return films;
     }
 
     public Film getById(Long id) {
-        log.debug("Поиск фильма по id={}", id);
         return filmStorage.getFilmById(id)
                 .orElseThrow(() -> {
                     log.warn("Фильм с id={} не найден", id);
@@ -63,38 +66,26 @@ public class FilmService {
     }
 
     public void addLike(Long filmId, Long userId) {
-        log.debug("Пользователь id={} добавляет лайк фильму id={}", userId, filmId);
-        Film film = getById(filmId);
+        getById(filmId);
         getUserById(userId);
-        film.getLikes().add(userId);
-        log.info("Пользователь id={} поставил лайк фильму id={}, всего лайков: {}",
-                userId, filmId, film.getLikes().size());
+        filmStorage.addLike(filmId, userId);
+        log.info("Лайк добавлен: filmId={}, userId={}", filmId, userId);
     }
 
     public void removeLike(Long filmId, Long userId) {
-        log.debug("Пользователь id={} удаляет лайк с фильма id={}", userId, filmId);
-        Film film = getById(filmId);
+        getById(filmId);
         getUserById(userId);
-        if (!film.getLikes().remove(userId)) {
-            log.warn("Лайк от пользователя id={} у фильма id={} не найден", userId, filmId);
-            throw new NotFoundException("Лайк от пользователя id=" + userId + " не найден");
-        }
-        log.info("Пользователь id={} убрал лайк с фильма id={}, всего лайков: {}",
-                userId, filmId, film.getLikes().size());
+        filmStorage.removeLike(filmId, userId);
+        log.info("Лайк удалён: filmId={}, userId={}", filmId, userId);
     }
 
     public List<Film> getPopularFilms(int count) {
         if (count <= 0) {
-            log.warn("Валидация не пройдена: count={} не является положительным числом", count);
+            log.warn("Запрос популярных фильмов: count={} не является положительным числом", count);
             throw new ValidationException("Количество фильмов должно быть положительным числом");
         }
         log.debug("Запрос топ-{} популярных фильмов", count);
-        List<Film> popular = filmStorage.getAllFilms().stream()
-                .sorted(Comparator.comparingInt((Film f) -> f.getLikes().size()).reversed())
-                .limit(count)
-                .collect(Collectors.toList());
-        log.debug("Сформирован список популярных фильмов, количество: {}", popular.size());
-        return popular;
+        return filmStorage.getPopularFilms(count);
     }
 
     private void getUserById(Long userId) {
@@ -124,5 +115,15 @@ public class FilmService {
                     film.getDuration());
             throw new ValidationException("Продолжительность фильма должна быть положительным числом");
         }
+        if (film.getMpa() == null) {
+            log.warn("Валидация не пройдена: рейтинг MPA не указан");
+            throw new ValidationException("Рейтинг MPA обязателен");
+        }
+        mpaRatingStorage.getMpaRatingById(film.getMpa().getId())
+                .orElseThrow(() -> {
+                    log.warn("Валидация не пройдена: MPA рейтинг с id={} не найден", film.getMpa().getId());
+                    return new NotFoundException("MPA рейтинг с id=" + film.getMpa().getId() + " не найден");
+                });
+        genreService.validateGenreIds(film.getGenres());
     }
 }

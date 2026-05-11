@@ -2,6 +2,7 @@ package ru.yandex.practicum.filmorate.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
@@ -11,7 +12,6 @@ import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -19,38 +19,34 @@ public class UserService {
     private final UserStorage userStorage;
 
     @Autowired
-    public UserService(UserStorage userStorage) {
+    public UserService(@Qualifier("userDbStorage") UserStorage userStorage) {
         this.userStorage = userStorage;
     }
 
     public User createUser(User user) {
-        log.debug("Начало создания пользователя: {}", user);
         validate(user);
         applyNameFallback(user);
         User saved = userStorage.createUser(user);
-        log.debug("Пользователь создан: id={}, login={}", saved.getId(), saved.getLogin());
+        log.info("Пользователь создан: id={}, login={}", saved.getId(), saved.getLogin());
         return saved;
     }
 
     public User updateUser(User user) {
-        log.debug("Начало обновления пользователя: {}", user);
         validate(user);
         applyNameFallback(user);
-        User existing = getById(user.getId());
-        log.debug("Текущее состояние пользователя перед обновлением: {}", existing);
+        getById(user.getId());
         User updated = userStorage.updateUser(user);
-        log.debug("Пользователь обновлён: {}", updated);
+        log.info("Пользователь обновлён: id={}, login={}", updated.getId(), updated.getLogin());
         return updated;
     }
 
     public List<User> getAllUsers() {
         List<User> users = userStorage.getAllUsers();
-        log.debug("Получен список пользователей, количество: {}", users.size());
+        log.debug("Запрос всех пользователей, найдено: {}", users.size());
         return users;
     }
 
     public User getById(Long id) {
-        log.debug("Поиск пользователя по id={}", id);
         return userStorage.getUserById(id)
                 .orElseThrow(() -> {
                     log.warn("Пользователь с id={} не найден", id);
@@ -59,59 +55,52 @@ public class UserService {
     }
 
     public void addFriend(Long userId, Long friendId) {
-        log.debug("Пользователь id={} добавляет в друзья пользователя id={}", userId, friendId);
         if (userId.equals(friendId)) {
             log.warn("Валидация не пройдена: пользователь id={} пытается добавить себя в друзья", userId);
             throw new ValidationException("Пользователь не может добавить самого себя в друзья");
         }
-        User user = getById(userId);
-        User friend = getById(friendId);
-        if (friend.getFriends().containsKey(userId)) {
-            friend.getFriends().put(userId, FriendshipStatus.CONFIRMED);
-            user.getFriends().put(friendId, FriendshipStatus.CONFIRMED);
-            log.info("Дружба подтверждена между пользователями id={} и id={}", userId, friendId);
+        getById(userId);
+        getById(friendId);
+        if (userStorage.friendshipExists(friendId, userId)) {
+            userStorage.addFriend(userId, friendId, FriendshipStatus.CONFIRMED);
+            userStorage.updateFriendshipStatus(friendId, userId, FriendshipStatus.CONFIRMED);
+            log.info("Встречная заявка: дружба id={} и id={} подтверждена", userId, friendId);
         } else {
-            user.getFriends().put(friendId, FriendshipStatus.UNCONFIRMED);
-            log.info("Пользователь id={} отправил запрос дружбы пользователю id={}", userId, friendId);
+            userStorage.addFriend(userId, friendId, FriendshipStatus.UNCONFIRMED);
+            log.info("Пользователь id={} отправил заявку в друзья пользователю id={}", userId, friendId);
         }
     }
 
     public void removeFriend(Long userId, Long friendId) {
-        log.debug("Пользователь id={} удаляет из друзей пользователя id={}", userId, friendId);
         if (userId.equals(friendId)) {
             log.warn("Валидация не пройдена: пользователь id={} пытается удалить себя из друзей", userId);
             throw new ValidationException("Пользователь не может удалить самого себя из друзей");
         }
-        User user = getById(userId);
-        User friend = getById(friendId);
-        user.getFriends().remove(friendId);
-        if (friend.getFriends().containsKey(userId)) {
-            friend.getFriends().put(userId, FriendshipStatus.UNCONFIRMED);
+        getById(userId);
+        getById(friendId);
+        userStorage.removeFriend(userId, friendId);
+        if (userStorage.friendshipExists(friendId, userId)) {
+            userStorage.updateFriendshipStatus(friendId, userId, FriendshipStatus.UNCONFIRMED);
         }
         log.info("Пользователь id={} удалил из друзей пользователя id={}", userId, friendId);
     }
 
     public List<User> getFriends(Long userId) {
-        log.debug("Запрос списка друзей пользователя id={}", userId);
-        User user = getById(userId);
-        List<User> friends = user.getFriends().keySet().stream()
-                .map(this::getById)
-                .collect(Collectors.toList());
-        log.debug("Пользователь id={} имеет {} друзей", userId, friends.size());
+        getById(userId);
+        List<User> friends = userStorage.getFriends(userId);
+        log.debug("Запрос друзей пользователя id={}, найдено: {}", userId, friends.size());
         return friends;
     }
 
     public List<User> getCommonFriends(Long userId, Long otherId) {
-        log.debug("Запрос общих друзей пользователей id={} и id={}", userId, otherId);
         if (userId.equals(otherId)) {
             log.warn("Валидация не пройдена: запрос общих друзей с самим собой, id={}", userId);
             throw new ValidationException("Нельзя запрашивать общих друзей с самим собой");
         }
-        List<User> common = getById(userId).getFriends().keySet().stream()
-                .filter(id -> getById(otherId).getFriends().containsKey(id))
-                .map(this::getById)
-                .collect(Collectors.toList());
-        log.debug("Общих друзей у пользователей id={} и id={}: {}", userId, otherId, common.size());
+        getById(userId);
+        getById(otherId);
+        List<User> common = userStorage.getCommonFriends(userId, otherId);
+        log.debug("Запрос общих друзей id={} и id={}, найдено: {}", userId, otherId, common.size());
         return common;
     }
 
@@ -141,7 +130,6 @@ public class UserService {
 
     private void applyNameFallback(User user) {
         if (user.getName() == null || user.getName().isBlank()) {
-            log.debug("Имя пользователя не задано, используется логин '{}' в качестве имени", user.getLogin());
             user.setName(user.getLogin());
         }
     }

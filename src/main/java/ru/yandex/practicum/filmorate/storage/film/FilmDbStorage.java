@@ -4,6 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Component;
@@ -16,9 +18,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -35,10 +39,12 @@ public class FilmDbStorage implements FilmStorage {
             "JOIN mpa_ratings m ON f.mpa_rating_id = m.mpa_rating_id";
 
     private final JdbcTemplate jdbc;
+    private final NamedParameterJdbcTemplate namedJdbc;
 
     @Autowired
-    public FilmDbStorage(JdbcTemplate jdbc) {
+    public FilmDbStorage(JdbcTemplate jdbc, NamedParameterJdbcTemplate namedJdbc) {
         this.jdbc = jdbc;
+        this.namedJdbc = namedJdbc;
     }
 
     @Override
@@ -80,18 +86,17 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public void deleteFilm(Long id) {
-        jdbc.update("DELETE FROM film_genres WHERE film_id=?", id);
-        jdbc.update("DELETE FROM likes WHERE film_id=?", id);
+        // film_genres и likes удаляются каскадно через ON DELETE CASCADE
         jdbc.update("DELETE FROM films WHERE film_id=?", id);
     }
 
     @Override
     public List<Film> getAllFilms() {
         List<Film> films = jdbc.query(FILM_SELECT, this::mapRowToFilm);
-        films.forEach(f -> {
-            loadGenres(f);
-            loadLikes(f);
-        });
+        if (!films.isEmpty()) {
+            loadGenresForFilms(films);
+            loadLikesForFilms(films);
+        }
         return films;
     }
 
@@ -102,10 +107,36 @@ public class FilmDbStorage implements FilmStorage {
         if (films.isEmpty()) {
             return Optional.empty();
         }
-        Film film = films.get(0);
-        loadGenres(film);
-        loadLikes(film);
-        return Optional.of(film);
+        loadGenresForFilms(films);
+        loadLikesForFilms(films);
+        return Optional.of(films.getFirst());
+    }
+
+    @Override
+    public List<Film> getPopularFilms(int count) {
+        String sql = FILM_SELECT +
+                " LEFT JOIN likes l ON f.film_id = l.film_id" +
+                " GROUP BY f.film_id, m.name" +
+                " ORDER BY COUNT(l.user_id) DESC" +
+                " LIMIT ?";
+        List<Film> films = jdbc.query(sql, this::mapRowToFilm, count);
+        if (!films.isEmpty()) {
+            loadGenresForFilms(films);
+            loadLikesForFilms(films);
+        }
+        return films;
+    }
+
+    @Override
+    public void addLike(Long filmId, Long userId) {
+        jdbc.update("INSERT INTO likes (film_id, user_id) VALUES (?, ?)", filmId, userId);
+        log.debug("Лайк добавлен: filmId={}, userId={}", filmId, userId);
+    }
+
+    @Override
+    public void removeLike(Long filmId, Long userId) {
+        jdbc.update("DELETE FROM likes WHERE film_id=? AND user_id=?", filmId, userId);
+        log.debug("Лайк удалён: filmId={}, userId={}", filmId, userId);
     }
 
     private Film mapRowToFilm(ResultSet rs, int rowNum) throws SQLException {
@@ -121,58 +152,51 @@ public class FilmDbStorage implements FilmStorage {
         return film;
     }
 
-    private void loadGenres(Film film) {
-        String sql = "SELECT g.genre_id, g.name " +
+    private void loadGenresForFilms(List<Film> films) {
+        List<Long> filmIds = films.stream().map(Film::getId).toList();
+        MapSqlParameterSource params = new MapSqlParameterSource("filmIds", filmIds);
+        String sql = "SELECT fg.film_id, g.genre_id, g.name " +
                      "FROM film_genres fg JOIN genres g ON fg.genre_id = g.genre_id " +
-                     "WHERE fg.film_id=? ORDER BY g.genre_id";
-        Set<Genre> genres = new LinkedHashSet<>();
-        jdbc.query(sql, rs -> {
-            genres.add(new Genre(rs.getInt("genre_id"), rs.getString("name")));
-        }, film.getId());
-        film.setGenres(genres);
+                     "WHERE fg.film_id IN (:filmIds) ORDER BY g.genre_id";
+
+        Map<Long, Set<Genre>> genresByFilm = new HashMap<>();
+        namedJdbc.query(sql, params, rs -> {
+            long filmId = rs.getLong("film_id");
+            genresByFilm.computeIfAbsent(filmId, k -> new LinkedHashSet<>())
+                        .add(new Genre(rs.getInt("genre_id"), rs.getString("name")));
+        });
+
+        films.forEach(f -> f.setGenres(genresByFilm.getOrDefault(f.getId(), new LinkedHashSet<>())));
     }
 
-    private void loadLikes(Film film) {
-        String sql = "SELECT user_id FROM likes WHERE film_id=?";
-        Set<Long> likes = new HashSet<>();
-        jdbc.query(sql, rs -> {
-            likes.add(rs.getLong("user_id"));
-        }, film.getId());
-        film.setLikes(likes);
+    private void loadLikesForFilms(List<Film> films) {
+        List<Long> filmIds = films.stream().map(Film::getId).toList();
+        MapSqlParameterSource params = new MapSqlParameterSource("filmIds", filmIds);
+        String sql = "SELECT film_id, user_id FROM likes WHERE film_id IN (:filmIds)";
+
+        Map<Long, Set<Long>> likesByFilm = new HashMap<>();
+        namedJdbc.query(sql, params, rs -> {
+            long filmId = rs.getLong("film_id");
+            likesByFilm.computeIfAbsent(filmId, k -> new HashSet<>())
+                       .add(rs.getLong("user_id"));
+        });
+
+        films.forEach(f -> f.setLikes(likesByFilm.getOrDefault(f.getId(), new HashSet<>())));
     }
 
     private void saveGenres(Film film) {
         if (film.getGenres() == null || film.getGenres().isEmpty()) {
             return;
         }
-        for (Genre genre : film.getGenres()) {
-            jdbc.update("INSERT INTO film_genres (film_id, genre_id) VALUES (?, ?)",
-                    film.getId(), genre.getId());
-        }
-    }
-
-    @Override
-    public List<Film> getPopularFilms(int count) {
-        String sql = FILM_SELECT +
-                " LEFT JOIN likes l ON f.film_id = l.film_id" +
-                " GROUP BY f.film_id, m.name" +
-                " ORDER BY COUNT(l.user_id) DESC" +
-                " LIMIT ?";
-        List<Film> films = jdbc.query(sql, this::mapRowToFilm, count);
-        films.forEach(f -> {
-            loadGenres(f);
-            loadLikes(f);
-        });
-        return films;
-    }
-
-    @Override
-    public void addLike(Long filmId, Long userId) {
-        jdbc.update("INSERT INTO likes (film_id, user_id) VALUES (?, ?)", filmId, userId);
-    }
-
-    @Override
-    public void removeLike(Long filmId, Long userId) {
-        jdbc.update("DELETE FROM likes WHERE film_id=? AND user_id=?", filmId, userId);
+        List<Genre> genres = List.copyOf(film.getGenres());
+        jdbc.batchUpdate(
+                "INSERT INTO film_genres (film_id, genre_id) VALUES (?, ?)",
+                genres,
+                genres.size(),
+                (ps, genre) -> {
+                    ps.setLong(1, film.getId());
+                    ps.setInt(2, genre.getId());
+                }
+        );
     }
 }

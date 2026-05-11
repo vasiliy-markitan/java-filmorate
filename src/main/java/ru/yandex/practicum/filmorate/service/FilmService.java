@@ -123,13 +123,15 @@ public class FilmService {
                     film.getDuration());
             throw new ValidationException("Продолжительность фильма должна быть положительным числом");
         }
-        if (film.getMpa() != null) {
-            mpaRatingStorage.getMpaRatingById(film.getMpa().getId())
-                    .orElseThrow(() -> {
-                        log.warn("Валидация не пройдена: MPA рейтинг с id={} не найден", film.getMpa().getId());
-                        return new NotFoundException("MPA рейтинг с id=" + film.getMpa().getId() + " не найден");
-                    });
+        if (film.getMpa() == null) {
+            log.warn("Валидация не пройдена: рейтинг MPA не указан");
+            throw new ValidationException("Рейтинг MPA обязателен");
         }
+        mpaRatingStorage.getMpaRatingById(film.getMpa().getId())
+                .orElseThrow(() -> {
+                    log.warn("Валидация не пройдена: MPA рейтинг с id={} не найден", film.getMpa().getId());
+                    return new NotFoundException("MPA рейтинг с id=" + film.getMpa().getId() + " не найден");
+                });
         if (film.getGenres() != null) {
             for (Genre genre : film.getGenres()) {
                 genreStorage.getGenreById(genre.getId())

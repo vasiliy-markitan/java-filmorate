@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.MpaRating;
 import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.storage.film.InMemoryFilmStorage;
 import ru.yandex.practicum.filmorate.storage.genre.GenreStorage;
@@ -11,9 +12,12 @@ import ru.yandex.practicum.filmorate.storage.mpa.MpaRatingStorage;
 import ru.yandex.practicum.filmorate.storage.user.InMemoryUserStorage;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class FilmControllerTest {
 
@@ -21,10 +25,14 @@ class FilmControllerTest {
 
     @BeforeEach
     void setUp() {
+        MpaRatingStorage mpaRatingStorage = mock(MpaRatingStorage.class);
+        when(mpaRatingStorage.getMpaRatingById(anyInt()))
+                .thenReturn(Optional.of(new MpaRating(1, "G")));
+
         controller = new FilmController(new FilmService(
                 new InMemoryFilmStorage(),
                 new InMemoryUserStorage(),
-                mock(MpaRatingStorage.class),
+                mpaRatingStorage,
                 mock(GenreStorage.class)
         ));
     }
@@ -35,6 +43,7 @@ class FilmControllerTest {
         film.setDescription("Описание");
         film.setReleaseDate(LocalDate.of(2000, 1, 1));
         film.setDuration(120);
+        film.setMpa(new MpaRating(1, "G"));
         return film;
     }
 

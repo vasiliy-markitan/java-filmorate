@@ -14,9 +14,7 @@ import ru.yandex.practicum.filmorate.storage.mpa.MpaRatingStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
-import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -95,12 +93,7 @@ public class FilmService {
             throw new ValidationException("Количество фильмов должно быть положительным числом");
         }
         log.debug("Запрос топ-{} популярных фильмов", count);
-        List<Film> popular = filmStorage.getAllFilms().stream()
-                .sorted(Comparator.comparingInt((Film f) -> f.getLikes().size()).reversed())
-                .limit(count)
-                .collect(Collectors.toList());
-        log.debug("Сформирован список популярных фильмов, количество: {}", popular.size());
-        return popular;
+        return filmStorage.getPopularFilms(count);
     }
 
     private void getUserById(Long userId) {

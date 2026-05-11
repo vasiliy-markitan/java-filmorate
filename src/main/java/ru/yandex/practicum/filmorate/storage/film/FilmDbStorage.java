@@ -152,6 +152,21 @@ public class FilmDbStorage implements FilmStorage {
     }
 
     @Override
+    public List<Film> getPopularFilms(int count) {
+        String sql = FILM_SELECT +
+                " LEFT JOIN likes l ON f.film_id = l.film_id" +
+                " GROUP BY f.film_id, m.name" +
+                " ORDER BY COUNT(l.user_id) DESC" +
+                " LIMIT ?";
+        List<Film> films = jdbc.query(sql, this::mapRowToFilm, count);
+        films.forEach(f -> {
+            loadGenres(f);
+            loadLikes(f);
+        });
+        return films;
+    }
+
+    @Override
     public void addLike(Long filmId, Long userId) {
         jdbc.update("INSERT INTO likes (film_id, user_id) VALUES (?, ?)", filmId, userId);
     }

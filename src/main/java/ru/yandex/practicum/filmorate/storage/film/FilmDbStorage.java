@@ -1,6 +1,5 @@
 package ru.yandex.practicum.filmorate.storage.film;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -27,7 +26,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-@Slf4j
 @Component
 @Qualifier("filmDbStorage")
 public class FilmDbStorage implements FilmStorage {
@@ -63,7 +61,6 @@ public class FilmDbStorage implements FilmStorage {
         }, keyHolder);
         film.setId(Objects.requireNonNull(keyHolder.getKey()).longValue());
         saveGenres(film);
-        log.debug("Фильм сохранён в БД: id={}", film.getId());
         return film;
     }
 
@@ -80,7 +77,6 @@ public class FilmDbStorage implements FilmStorage {
                 film.getId());
         jdbc.update("DELETE FROM film_genres WHERE film_id=?", film.getId());
         saveGenres(film);
-        log.debug("Фильм обновлён в БД: id={}", film.getId());
         return film;
     }
 
@@ -130,13 +126,11 @@ public class FilmDbStorage implements FilmStorage {
     @Override
     public void addLike(Long filmId, Long userId) {
         jdbc.update("INSERT INTO likes (film_id, user_id) VALUES (?, ?)", filmId, userId);
-        log.debug("Лайк добавлен: filmId={}, userId={}", filmId, userId);
     }
 
     @Override
     public void removeLike(Long filmId, Long userId) {
         jdbc.update("DELETE FROM likes WHERE film_id=? AND user_id=?", filmId, userId);
-        log.debug("Лайк удалён: filmId={}, userId={}", filmId, userId);
     }
 
     private Film mapRowToFilm(ResultSet rs, int rowNum) throws SQLException {

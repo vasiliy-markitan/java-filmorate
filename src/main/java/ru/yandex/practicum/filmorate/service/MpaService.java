@@ -17,7 +17,9 @@ public class MpaService {
     private final MpaRatingStorage mpaRatingStorage;
 
     public List<MpaRating> getAllMpaRatings() {
-        return mpaRatingStorage.getAllMpaRatings();
+        List<MpaRating> ratings = mpaRatingStorage.getAllMpaRatings();
+        log.debug("Запрос всех рейтингов MPA, найдено: {}", ratings.size());
+        return ratings;
     }
 
     public MpaRating getMpaRatingById(int id) {

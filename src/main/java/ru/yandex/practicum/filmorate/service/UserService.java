@@ -24,33 +24,29 @@ public class UserService {
     }
 
     public User createUser(User user) {
-        log.debug("Начало создания пользователя: {}", user);
         validate(user);
         applyNameFallback(user);
         User saved = userStorage.createUser(user);
-        log.debug("Пользователь создан: id={}, login={}", saved.getId(), saved.getLogin());
+        log.info("Пользователь создан: id={}, login={}", saved.getId(), saved.getLogin());
         return saved;
     }
 
     public User updateUser(User user) {
-        log.debug("Начало обновления пользователя: {}", user);
         validate(user);
         applyNameFallback(user);
-        User existing = getById(user.getId());
-        log.debug("Текущее состояние пользователя перед обновлением: {}", existing);
+        getById(user.getId());
         User updated = userStorage.updateUser(user);
-        log.debug("Пользователь обновлён: {}", updated);
+        log.info("Пользователь обновлён: id={}, login={}", updated.getId(), updated.getLogin());
         return updated;
     }
 
     public List<User> getAllUsers() {
         List<User> users = userStorage.getAllUsers();
-        log.debug("Получен список пользователей, количество: {}", users.size());
+        log.debug("Запрос всех пользователей, найдено: {}", users.size());
         return users;
     }
 
     public User getById(Long id) {
-        log.debug("Поиск пользователя по id={}", id);
         return userStorage.getUserById(id)
                 .orElseThrow(() -> {
                     log.warn("Пользователь с id={} не найден", id);
@@ -59,7 +55,6 @@ public class UserService {
     }
 
     public void addFriend(Long userId, Long friendId) {
-        log.debug("Пользователь id={} добавляет в друзья пользователя id={}", userId, friendId);
         if (userId.equals(friendId)) {
             log.warn("Валидация не пройдена: пользователь id={} пытается добавить себя в друзья", userId);
             throw new ValidationException("Пользователь не может добавить самого себя в друзья");
@@ -77,7 +72,6 @@ public class UserService {
     }
 
     public void removeFriend(Long userId, Long friendId) {
-        log.debug("Пользователь id={} удаляет из друзей пользователя id={}", userId, friendId);
         if (userId.equals(friendId)) {
             log.warn("Валидация не пройдена: пользователь id={} пытается удалить себя из друзей", userId);
             throw new ValidationException("Пользователь не может удалить самого себя из друзей");
@@ -92,15 +86,13 @@ public class UserService {
     }
 
     public List<User> getFriends(Long userId) {
-        log.debug("Запрос списка друзей пользователя id={}", userId);
         getById(userId);
         List<User> friends = userStorage.getFriends(userId);
-        log.debug("Пользователь id={} имеет {} друзей", userId, friends.size());
+        log.debug("Запрос друзей пользователя id={}, найдено: {}", userId, friends.size());
         return friends;
     }
 
     public List<User> getCommonFriends(Long userId, Long otherId) {
-        log.debug("Запрос общих друзей пользователей id={} и id={}", userId, otherId);
         if (userId.equals(otherId)) {
             log.warn("Валидация не пройдена: запрос общих друзей с самим собой, id={}", userId);
             throw new ValidationException("Нельзя запрашивать общих друзей с самим собой");
@@ -108,7 +100,7 @@ public class UserService {
         getById(userId);
         getById(otherId);
         List<User> common = userStorage.getCommonFriends(userId, otherId);
-        log.debug("Общих друзей у пользователей id={} и id={}: {}", userId, otherId, common.size());
+        log.debug("Запрос общих друзей id={} и id={}, найдено: {}", userId, otherId, common.size());
         return common;
     }
 
@@ -138,7 +130,6 @@ public class UserService {
 
     private void applyNameFallback(User user) {
         if (user.getName() == null || user.getName().isBlank()) {
-            log.debug("Имя пользователя не задано, используется логин '{}' в качестве имени", user.getLogin());
             user.setName(user.getLogin());
         }
     }

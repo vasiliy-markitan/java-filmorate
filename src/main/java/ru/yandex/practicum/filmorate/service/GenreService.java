@@ -19,7 +19,9 @@ public class GenreService {
     private final GenreStorage genreStorage;
 
     public List<Genre> getAllGenres() {
-        return genreStorage.getAllGenres();
+        List<Genre> genres = genreStorage.getAllGenres();
+        log.debug("Запрос всех жанров, найдено: {}", genres.size());
+        return genres;
     }
 
     public Genre getGenreById(int id) {

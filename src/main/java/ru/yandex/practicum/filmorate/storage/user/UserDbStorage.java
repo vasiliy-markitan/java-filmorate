@@ -1,6 +1,5 @@
 package ru.yandex.practicum.filmorate.storage.user;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -19,7 +18,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-@Slf4j
 @Component
 @Qualifier("userDbStorage")
 public class UserDbStorage implements UserStorage {
@@ -44,7 +42,6 @@ public class UserDbStorage implements UserStorage {
             return ps;
         }, keyHolder);
         user.setId(Objects.requireNonNull(keyHolder.getKey()).longValue());
-        log.debug("Пользователь сохранён в БД: id={}", user.getId());
         return user;
     }
 
@@ -57,7 +54,6 @@ public class UserDbStorage implements UserStorage {
                 user.getName(),
                 user.getBirthday() != null ? Date.valueOf(user.getBirthday()) : null,
                 user.getId());
-        log.debug("Пользователь обновлён в БД: id={}", user.getId());
         return user;
     }
 
@@ -77,7 +73,7 @@ public class UserDbStorage implements UserStorage {
     public Optional<User> getUserById(Long id) {
         String sql = "SELECT user_id, email, login, name, birthday FROM users WHERE user_id=?";
         List<User> users = jdbc.query(sql, this::mapRowToUser, id);
-        return users.isEmpty() ? Optional.empty() : Optional.of(users.get(0));
+        return users.isEmpty() ? Optional.empty() : Optional.of(users.getFirst());
     }
 
     @Override
@@ -86,13 +82,11 @@ public class UserDbStorage implements UserStorage {
                 "INSERT INTO friendships (user_id, friend_id, status) VALUES (?, ?, ?)",
                 userId, friendId, status.name()
         );
-        log.debug("Дружба добавлена: userId={}, friendId={}, status={}", userId, friendId, status);
     }
 
     @Override
     public void removeFriend(Long userId, Long friendId) {
         jdbc.update("DELETE FROM friendships WHERE user_id=? AND friend_id=?", userId, friendId);
-        log.debug("Дружба удалена: userId={}, friendId={}", userId, friendId);
     }
 
     @Override
@@ -101,7 +95,6 @@ public class UserDbStorage implements UserStorage {
                 "UPDATE friendships SET status=? WHERE user_id=? AND friend_id=?",
                 status.name(), userId, friendId
         );
-        log.debug("Статус дружбы обновлён: userId={}, friendId={}, status={}", userId, friendId, status);
     }
 
     @Override

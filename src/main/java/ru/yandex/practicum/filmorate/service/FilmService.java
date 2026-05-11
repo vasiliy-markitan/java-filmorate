@@ -37,31 +37,27 @@ public class FilmService {
     }
 
     public Film addFilm(Film film) {
-        log.debug("Начало добавления фильма: {}", film);
         validate(film);
         Film saved = filmStorage.addFilm(film);
-        log.debug("Фильм добавлен: id={}, name={}", saved.getId(), saved.getName());
+        log.info("Фильм добавлен: id={}, name={}", saved.getId(), saved.getName());
         return saved;
     }
 
     public Film updateFilm(Film film) {
-        log.debug("Начало обновления фильма: {}", film);
         validate(film);
-        Film existing = getById(film.getId());
-        log.debug("Текущее состояние фильма перед обновлением: {}", existing);
+        getById(film.getId());
         Film updated = filmStorage.updateFilm(film);
-        log.debug("Фильм обновлён: {}", updated);
+        log.info("Фильм обновлён: id={}, name={}", updated.getId(), updated.getName());
         return updated;
     }
 
     public List<Film> getAllFilms() {
         List<Film> films = filmStorage.getAllFilms();
-        log.debug("Получен список фильмов, количество: {}", films.size());
+        log.debug("Запрос всех фильмов, найдено: {}", films.size());
         return films;
     }
 
     public Film getById(Long id) {
-        log.debug("Поиск фильма по id={}", id);
         return filmStorage.getFilmById(id)
                 .orElseThrow(() -> {
                     log.warn("Фильм с id={} не найден", id);
@@ -70,24 +66,22 @@ public class FilmService {
     }
 
     public void addLike(Long filmId, Long userId) {
-        log.debug("Пользователь id={} добавляет лайк фильму id={}", userId, filmId);
         getById(filmId);
         getUserById(userId);
         filmStorage.addLike(filmId, userId);
-        log.info("Пользователь id={} поставил лайк фильму id={}", userId, filmId);
+        log.info("Лайк добавлен: filmId={}, userId={}", filmId, userId);
     }
 
     public void removeLike(Long filmId, Long userId) {
-        log.debug("Пользователь id={} удаляет лайк с фильма id={}", userId, filmId);
         getById(filmId);
         getUserById(userId);
         filmStorage.removeLike(filmId, userId);
-        log.info("Пользователь id={} убрал лайк с фильма id={}", userId, filmId);
+        log.info("Лайк удалён: filmId={}, userId={}", filmId, userId);
     }
 
     public List<Film> getPopularFilms(int count) {
         if (count <= 0) {
-            log.warn("Валидация не пройдена: count={} не является положительным числом", count);
+            log.warn("Запрос популярных фильмов: count={} не является положительным числом", count);
             throw new ValidationException("Количество фильмов должно быть положительным числом");
         }
         log.debug("Запрос топ-{} популярных фильмов", count);

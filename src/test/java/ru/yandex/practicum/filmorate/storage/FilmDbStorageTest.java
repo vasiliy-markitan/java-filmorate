@@ -159,11 +159,10 @@ class FilmDbStorageTest {
     }
 
     @Test
-    void updateFilm_savesLikesToDb() {
+    void addLike_savesLikeToDb() {
         Long userId = insertUser("liker@test.com", "likerlogin");
         Film film = filmStorage.addFilm(makeFilm("Лайкаемый"));
-        film.getLikes().add(userId);
-        filmStorage.updateFilm(film);
+        filmStorage.addLike(film.getId(), userId);
 
         Optional<Film> found = filmStorage.getFilmById(film.getId());
 
@@ -172,13 +171,11 @@ class FilmDbStorageTest {
     }
 
     @Test
-    void updateFilm_removeLike_persistsChange() {
+    void removeLike_deletesLikeFromDb() {
         Long userId = insertUser("unliker@test.com", "unlikerlogin");
         Film film = filmStorage.addFilm(makeFilm("Разлайкаемый"));
-        film.getLikes().add(userId);
-        filmStorage.updateFilm(film);
-        film.getLikes().remove(userId);
-        filmStorage.updateFilm(film);
+        filmStorage.addLike(film.getId(), userId);
+        filmStorage.removeLike(film.getId(), userId);
 
         Optional<Film> found = filmStorage.getFilmById(film.getId());
 

@@ -74,7 +74,6 @@ public class FilmDbStorage implements FilmStorage {
                 film.getId());
         jdbc.update("DELETE FROM film_genres WHERE film_id=?", film.getId());
         saveGenres(film);
-        saveLikes(film);
         log.debug("Фильм обновлён в БД: id={}", film.getId());
         return film;
     }
@@ -152,13 +151,13 @@ public class FilmDbStorage implements FilmStorage {
         }
     }
 
-    private void saveLikes(Film film) {
-        jdbc.update("DELETE FROM likes WHERE film_id=?", film.getId());
-        if (film.getLikes() == null || film.getLikes().isEmpty()) {
-            return;
-        }
-        for (Long userId : film.getLikes()) {
-            jdbc.update("INSERT INTO likes (film_id, user_id) VALUES (?, ?)", film.getId(), userId);
-        }
+    @Override
+    public void addLike(Long filmId, Long userId) {
+        jdbc.update("INSERT INTO likes (film_id, user_id) VALUES (?, ?)", filmId, userId);
+    }
+
+    @Override
+    public void removeLike(Long filmId, Long userId) {
+        jdbc.update("DELETE FROM likes WHERE film_id=? AND user_id=?", filmId, userId);
     }
 }

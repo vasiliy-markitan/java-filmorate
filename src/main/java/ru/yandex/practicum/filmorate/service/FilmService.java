@@ -75,25 +75,18 @@ public class FilmService {
 
     public void addLike(Long filmId, Long userId) {
         log.debug("Пользователь id={} добавляет лайк фильму id={}", userId, filmId);
-        Film film = getById(filmId);
+        getById(filmId);
         getUserById(userId);
-        film.getLikes().add(userId);
-        filmStorage.updateFilm(film);
-        log.info("Пользователь id={} поставил лайк фильму id={}, всего лайков: {}",
-                userId, filmId, film.getLikes().size());
+        filmStorage.addLike(filmId, userId);
+        log.info("Пользователь id={} поставил лайк фильму id={}", userId, filmId);
     }
 
     public void removeLike(Long filmId, Long userId) {
         log.debug("Пользователь id={} удаляет лайк с фильма id={}", userId, filmId);
-        Film film = getById(filmId);
+        getById(filmId);
         getUserById(userId);
-        if (!film.getLikes().remove(userId)) {
-            log.warn("Лайк от пользователя id={} у фильма id={} не найден", userId, filmId);
-            throw new NotFoundException("Лайк от пользователя id=" + userId + " не найден");
-        }
-        filmStorage.updateFilm(film);
-        log.info("Пользователь id={} убрал лайк с фильма id={}, всего лайков: {}",
-                userId, filmId, film.getLikes().size());
+        filmStorage.removeLike(filmId, userId);
+        log.info("Пользователь id={} убрал лайк с фильма id={}", userId, filmId);
     }
 
     public List<Film> getPopularFilms(int count) {

@@ -7,9 +7,7 @@ import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
-import ru.yandex.practicum.filmorate.storage.genre.GenreStorage;
 import ru.yandex.practicum.filmorate.storage.mpa.MpaRatingStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
@@ -25,17 +23,17 @@ public class FilmService {
     private final FilmStorage filmStorage;
     private final UserStorage userStorage;
     private final MpaRatingStorage mpaRatingStorage;
-    private final GenreStorage genreStorage;
+    private final GenreService genreService;
 
     @Autowired
     public FilmService(@Qualifier("filmDbStorage") FilmStorage filmStorage,
                        @Qualifier("userDbStorage") UserStorage userStorage,
                        MpaRatingStorage mpaRatingStorage,
-                       GenreStorage genreStorage) {
+                       GenreService genreService) {
         this.filmStorage = filmStorage;
         this.userStorage = userStorage;
         this.mpaRatingStorage = mpaRatingStorage;
-        this.genreStorage = genreStorage;
+        this.genreService = genreService;
     }
 
     public Film addFilm(Film film) {
@@ -132,14 +130,6 @@ public class FilmService {
                     log.warn("Валидация не пройдена: MPA рейтинг с id={} не найден", film.getMpa().getId());
                     return new NotFoundException("MPA рейтинг с id=" + film.getMpa().getId() + " не найден");
                 });
-        if (film.getGenres() != null) {
-            for (Genre genre : film.getGenres()) {
-                genreStorage.getGenreById(genre.getId())
-                        .orElseThrow(() -> {
-                            log.warn("Валидация не пройдена: жанр с id={} не найден", genre.getId());
-                            return new NotFoundException("Жанр с id=" + genre.getId() + " не найден");
-                        });
-            }
-        }
+        genreService.validateGenreIds(film.getGenres());
     }
 }

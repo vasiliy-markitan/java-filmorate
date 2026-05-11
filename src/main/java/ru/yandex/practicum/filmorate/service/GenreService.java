@@ -8,6 +8,8 @@ import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.storage.genre.GenreStorage;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -26,5 +28,19 @@ public class GenreService {
                     log.warn("Жанр с id={} не найден", id);
                     return new NotFoundException("Жанр с id=" + id + " не найден");
                 });
+    }
+
+    public void validateGenreIds(Set<Genre> genres) {
+        if (genres == null || genres.isEmpty()) {
+            return;
+        }
+        List<Integer> ids = genres.stream().map(Genre::getId).collect(Collectors.toList());
+        List<Genre> found = genreStorage.getGenresByIds(ids);
+        if (found.size() < ids.size()) {
+            Set<Integer> foundIds = found.stream().map(Genre::getId).collect(Collectors.toSet());
+            int missingId = ids.stream().filter(id -> !foundIds.contains(id)).findFirst().orElseThrow();
+            log.warn("Валидация не пройдена: жанр с id={} не найден", missingId);
+            throw new NotFoundException("Жанр с id=" + missingId + " не найден");
+        }
     }
 }
